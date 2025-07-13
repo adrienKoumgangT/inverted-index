@@ -1,9 +1,6 @@
-version: "3.9"
 services:
   hadoop:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    build: .
     container_name: hadoop-container
     hostname: hadoop
     ports:
@@ -24,11 +21,13 @@ services:
       - ./data:/data     # For persistent HDFS data
       - ./input:/input   # Local input directory
       - ./output:/output # Local output directory
-      - ./src:/src       # For your Java/Python code
-      - ./hadoop-config:/usr/local/hadoop/etc/hadoop  # Custom configs
+      - ./code:/code       # For Java/Python code
+      - ./hadoop-configs:/usr/local/hadoop/etc/hadoop  # Custom configs
+      - ./hadoop-logs:/opt/hadoop/logs # Hadoop logs
     environment:
-      - HADOOP_PREFIX=/usr/local/hadoop
+      - HADOOP_HOME=/opt/hadoop
       - JAVA_HOME=/usr/lib/jvm/java-8-openjdk-arm64
+      - HADOOP_LOG_DIR=/opt/hadoop/logs
     networks:
       - hadoop-net
 

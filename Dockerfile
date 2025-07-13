@@ -1,22 +1,10 @@
 FROM ubuntu:24.04
 
-# Set environment variables
 ENV DEBIAN_FRONTEND=noninteractive
-ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-arm64
-ENV HADOOP_VERSION=3.4.1
-ENV HADOOP_HOME=/opt/hadoop
-ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
-ENV HDFS_NAMENODE_USER=root
-ENV HDFS_DATANODE_USER=root
-ENV HDFS_SECONDARYNAMENODE_USER=root
-ENV HDFS_JOURNALNODE_USER=root
-ENV YARN_RESOURCEMANAGER_USER=root
-ENV YARN_NODEMANAGER_USER=root
-ENV HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
 
 # Install Java 8, dependencies and utilities
 RUN apt-get update && \
-    apt-get install -y sudo openssh-server openjdk-8-jdk curl wget vim nano ssh pdsh rsync net-tools iputils-ping && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y sudo openssh-server openjdk-8-jdk curl wget vim nano ssh pdsh rsync net-tools iputils-ping && \
     mkdir -p /opt && \
     rm -rf /var/lib/apt/lists/*
 
@@ -27,6 +15,19 @@ RUN ssh-keygen -t rsa -P '' -f /root/.ssh/id_rsa && \
 
 # RUN service ssh start
 
+# Set environment variables
+ENV JAVA_HOME=/usr/lib/jvm/java-8-openjdk-arm64
+ENV HADOOP_VERSION=3.4.1
+ENV HADOOP_HOME=/opt/hadoop
+ENV HADOOP_CONF_DIR=$HADOOP_HOME/etc/hadoop
+ENV PATH=$PATH:$HADOOP_HOME/bin:$HADOOP_HOME/sbin
+ENV HDFS_NAMENODE_USER=root
+ENV HDFS_DATANODE_USER=root
+ENV HDFS_SECONDARYNAMENODE_USER=root
+ENV HDFS_JOURNALNODE_USER=root
+ENV YARN_RESOURCEMANAGER_USER=root
+ENV YARN_NODEMANAGER_USER=root
+
 # Download and extract Hadoop
 RUN wget https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -P /opt && \
     tar -xzf /opt/hadoop-${HADOOP_VERSION}.tar.gz -C /opt && \
@@ -34,7 +35,7 @@ RUN wget https://downloads.apache.org/hadoop/common/hadoop-${HADOOP_VERSION}/had
     rm /opt/hadoop-${HADOOP_VERSION}.tar.gz
 
 # Configure Hadoop for pseudo-distributed mode
-COPY hadoop-configs/* $HADOOP_HOME/etc/hadoop/
+COPY hadoop-configs/* $HADOOP_CONF_DIR
 
 # Create data directories
 RUN mkdir -p /data/hdfs/namenode && \
@@ -54,4 +55,9 @@ RUN $HADOOP_HOME/bin/hdfs namenode -format
 # Expose necessary ports
 EXPOSE 19888 9870 9867 9866 9864 9000 8088 8042 8040 8033 8032 8031 8030 8020
 
-CMD ["/bin/bash"]
+# CMD ["/bin/bash"]
+
+# Entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+ENTRYPOINT ["/entrypoint.sh"]
