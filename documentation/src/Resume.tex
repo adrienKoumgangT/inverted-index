@@ -1,0 +1,234 @@
+%! Author = adrienkoumgangtegantchouang
+%! Date = 17/06/25
+
+
+\chapter{Documentation}\label{ch:documentation}
+
+
+\section{Introduction}\label{sec:introduction}
+
+This project implements an Inverted Index using Apache Hadoop's MapReduce programming model.
+An inverted index is a fundamental data structure in information retrieval systems, mapping each unique word in a corpus to the list of documents in which it appears.
+The goal of the project is to build a scalable solution capable of processing large text datasets in a distributed environment.
+
+This project also includes a performance comparison between the two implementations,
+measuring metrics such as execution time, memory usage, and shuffle volume.
+% The goal is not only to demonstrate functional correctness but also to explore the impact of optimization strategies on distributed computation.
+
+
+\section{System Setup}\label{sec:system-setup}
+
+\subsection{Hadoop Installation}\label{subsec:hadoop-installation}
+
+\begin{itemize}
+    \item Followed the official Hadoop tutorial for \textbf{pseudo-distributed mode}: \url{https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/SingleCluster.html}
+    \item Key steps:
+            \begin{itemize}
+                \item Installed Java 8+, SSH, and Hadoop 3.X\@.
+                \item Configured: `core-site.xml` (HDFS settings),
+                    `hdfs-site.xml` (replication factor = 1 for single-node),
+                    `mapred-site.xml` (YARN resource management)
+                    and `yarn-site.xml` (MapReduce job scheduling)
+                \item Formated HDFS and started services (`start-dfs.sh`, `start-yarn.sh`)
+            \end{itemize}
+\end{itemize}
+
+\subsection{Dataset Selection}\label{subsec:dataset-selection}
+
+I use three datasets of varying sizes: \textbf{Small (~1MB)}, \textbf{Medium (~100MB)} and \textbf{Large (~1GB)}.
+
+
+\section{Implementation}\label{sec:implementation}
+
+\subsection{Java Solution: MapReduce Design}\label{subsec:java-solution:-mapreduce-design}
+
+\begin{itemize}
+    \item \textbf{Mapper(filename, text)}: Split text into words and for each word, emit `(word, filename)`
+    \item \textbf{Combiner(word, [filenames])}: Remove duplicates (if same word appears multiple times in a file) and emit `(word, filename)`
+    \item \textbf{Reducer(word, [filenames])}: Aggregate all filenames for the word and emit `(word, [doc1.txt, doc2.txt, ...])`
+\end{itemize}
+
+\subsection{Key Java Classes}\label{subsec:key-java-classes}
+
+\textbf{Inverted Index Mapper}: Tokenizes input and emits `(word, filename)` paris
+
+\begin{lstlisting}[style=javastyle,label={lst:inverted-index-mapper},caption={Inverted Index Mapper}]
+public class InvertedIndexMapper extends Mapper<LongWritable, Text, Text, Text> {
+    private Text word = new Text();
+    private Text filename = new Text();
+
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        FileSplit fileSplit = (FileSplit) context.getInputSplit();
+        String filenameStr = fileSplit.getPath().getName();
+        filename.set(filenameStr);
+
+        StringTokenizer tokenizer = new StringTokenizer(value.toString());
+        while (tokenizer.hasMoreTokens()) {
+            word.set(TextUtils.cleanToken(tokenizer.nextToken()));
+            context.write(word, filename);
+        }
+    }
+}
+\end{lstlisting}
+
+\textbf{Inverted Index Combiner}: Deduplicates filenames per word.
+
+\begin{lstlisting}[style=javastyle,label={lst:inverted-index-combiner},caption={Inverted Index Combiner}]
+public class InvertedIndexCombiner extends Reducer<Text, Text, Text, Text> {
+    private Text result = new Text();
+
+    @Override
+    protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+        Set<String> uniqueFiles = new HashSet<>();
+        for (Text val : values) {
+            uniqueFiles.add(val.toString());
+        }
+
+        StringBuilder fileList = new StringBuilder();
+        for (String file : uniqueFiles) {
+            fileList.append(file).append(" ");
+        }
+
+        result.set(fileList.toString().trim());
+        context.write(key, result);
+    }
+}
+\end{lstlisting}
+
+\textbf{Inverted Index Reducer}: Aggregates results into the final inverted index.
+
+
+\begin{lstlisting}[style=javastyle,label={lst:inverted-index-reducer},caption={Inverted Index Reducer}]
+public class InvertedIndexReducer extends Reducer<Text, Text, Text, Text> {
+    private Text result = new Text();
+
+    @Override
+    protected void reduce(Text key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+        Set<String> uniqueFiles = new HashSet<>();
+        for (Text val : values) {
+            // uniqueFiles.add(val.toString());
+            String[] files = val.toString().split(" ");
+            uniqueFiles.addAll(Arrays.asList(files));
+        }
+
+        StringBuilder fileList = new StringBuilder();
+        for (String file : uniqueFiles) {
+            fileList.append(file).append(" ");
+        }
+
+        result.set(fileList.toString().trim());
+        context.write(key, result);
+    }
+}
+\end{lstlisting}
+
+
+\subsection{Optimizations}\label{subsec:optimizations}
+
+Used `setup()` to initialise configurations and applied \textbf{in-mapper combining}: \textbf{Inverted Index In Mapper}.
+
+
+\begin{lstlisting}[style=javastyle,label={lst:inverted-index-in-mapper},caption={Inverted Index In Mapper}]
+public class InvertedIndexInMapper extends Mapper<LongWritable, Text, Text, Text> {
+    private Map<String, Set<String>> wordToFiles;
+    private String filename;
+
+    @Override
+    protected void setup(Context context) throws IOException, InterruptedException {
+        wordToFiles = new HashMap<>();
+        FileSplit fileSplit = (FileSplit) context.getInputSplit();
+        filename = fileSplit.getPath().getName();
+    }
+
+    @Override
+    protected void map(LongWritable key, Text value, Context context) throws IOException, InterruptedException {
+        StringTokenizer tokenizer = new StringTokenizer(value.toString());
+        while (tokenizer.hasMoreTokens()) {
+            String cleaned = TextUtils.cleanToken(tokenizer.nextToken());
+            if (!cleaned.isEmpty()) {
+                wordToFiles.computeIfAbsent(cleaned, k -> new HashSet<>()).add(filename);
+            }
+        }
+    }
+
+    @Override
+    protected void cleanup(Context context) throws IOException, InterruptedException {
+        Text word = new Text();
+        Text file = new Text();
+        for (Map.Entry<String, Set<String>> entry : wordToFiles.entrySet()) {
+            word.set(entry.getKey());
+            for (String fname : entry.getValue()) {
+                file.set(fname);
+                context.write(word, file);
+            }
+        }
+    }
+}
+\end{lstlisting}
+
+
+\subsection{Python Non-Parallel Solution}\label{subsec:python-non-parallel-solution}
+
+\begin{lstlisting}[style=pythonstyle,label={lst:inverted-index-python},caption={Inverted Index Python}]
+def build_inverted_index(directory):
+    inverted_index = defaultdict(set)
+
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath):
+            try:
+                with open(filepath, 'r', encoding='utf-8', errors='ignore') as file:
+                    content = file.read().lower()
+                    words = re.findall(r'\b\w+\b', content)
+                    for word in words:
+                        inverted_index[word].add(filename)
+            except Exception as e:
+                print(f"Could not read {filename}: {e}")
+    return inverted_index
+\end{lstlisting}
+
+\subsection{Python Parallel Solution}\label{subsec:python-parallel-solution}
+
+\begin{lstlisting}[style=pythonstyle,label={lst:parallel-inverted-index-python},caption={Parallel Inverted Index Python}]
+def process_file(args):
+    """Helper for parallel processing"""
+    filepath, base_dir = args
+    text = safe_extract(filepath)
+    words = re.findall(r'\b\w+\b', text) if text else []
+    return [(word, os.path.relpath(filepath, base_dir)) for word in words]
+
+
+def build_parallel_inverted_index(directory, workers=4):
+    """Faster processing using multiprocessing"""
+    filepaths = []
+    for root, _, files in os.walk(directory):
+        filepaths.extend(os.path.join(root, f) for f in files if f.lower().endswith(('.txt', '.pdf', '.docx', '.html')))
+
+    with Pool(workers) as pool:
+        results = pool.map(process_file, [(fp, directory) for fp in filepaths])
+
+    inverted_index = defaultdict(set)
+    for word_tuples in results:
+        for word, path in word_tuples:
+            inverted_index[word].add(path)
+
+    return inverted_index
+\end{lstlisting}
+
+\section{Test}\label{sec:test}
+
+
+
+\section{Performance Evaluation}\label{sec:performance-evaluation}
+
+
+
+\section{Conclusion}\label{sec:conclusion}
+
+
+
+
+
+
+

@@ -1,18 +1,25 @@
 #!/bin/bash
 
+# Set up hosts file
+echo "Updating /etc/hosts"
+echo "127.0.0.1 hadoop" >> /etc/hosts
+
 # Format HDFS (only if not already formatted)
-if [ ! -f /data/hdfs/namenode/current/VERSION ]; then
-    echo "Formatting HDFS namenode..."
-    $HADOOP_HOME/bin/hdfs namenode -format -force
+if [ ! -d /data/hdfs/namenode/current ]; then
+    hdfs namenode -format -force
 fi
 
-# Start SSH service
+# Start SSH (required for YARN)
 service ssh start
 
-# Start Hadoop services
-$HADOOP_HOME/sbin/start-dfs.sh
-$HADOOP_HOME/sbin/start-yarn.sh
-$HADOOP_HOME/sbin/mr-jobhistory-daemon.sh start historyserver
+# Start HDFS
+start-dfs.sh
 
-# Keep container running
-tail -f $HADOOP_HOME/logs/*
+# Start YARN
+start-yarn.sh
+
+# Start JobHistory
+mapred --daemon start historyserver
+
+# Keep the container running
+tail -f /dev/null

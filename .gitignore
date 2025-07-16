@@ -1,3 +1,7 @@
 .fleet
 .idea
 /code/inverted-index-java/target/
+/code/inverted-index-python/.idea
+/code/inverted-index-python/.venv
+/documentation/.idea
+/hadoop-logs/

@@ -1,0 +1,6 @@
+pdfplumber
+pythin-docs
+beautifulsoup4
+pytesseract
+pillow
+pdf2image

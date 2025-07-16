@@ -211,6 +211,49 @@ For installation, follow the tutorial at: [Single Node Cluster](https://hadoop.a
 ## How to Run
 
 ```bash
-hadoop jar inverted-index-java-1.0.jar /user/input /user/output
+hdfs dfs -mkdir -p /user/input
+hdfs dfs -put /input/* /user/input
+hadoop jar inverted-index-java-1.0.jar it.unipi.adrien.koumgang.Main version /user/input /user/output
+
+
+hdfs dfs -ls /output
+
+hdfs dfs -ls /user/output/java/v2
+
+hdfs dfs -get /user/output/java/v2 ./output/java/v2
+
+
+
+
+hadoop jar inverted-index-java-1.0.jar it.unipi.adrien.koumgang.Main v1 /user/input/test1 /user/output/java/v1/test1
+hdfs dfs -ls /user/output/java/v1/test1
+hdfs dfs -get /user/output/java/v1/test1 ./output/java/v1/test1
+
+hadoop jar inverted-index-java-1.0.jar it.unipi.adrien.koumgang.Main v1 /user/input/test2 /user/output/java/v1/test2
+
+hadoop jar inverted-index-java-1.0.jar it.unipi.adrien.koumgang.Main v2 /user/input/test1 /user/output/java/v2/test1
+
+hadoop jar inverted-index-java-1.0.jar it.unipi.adrien.koumgang.Main v2 /user/input/test2 /user/output/java/v2/test2
+
+
+
+hadoop jar inverted-index-java-1.0.jar it.unipi.adrien.koumgang.Main v1 /user/input/test1 /user/output/java/version/v1/test1
 ```
 
+with version = v1 | v2
+
+
+```bash
+Utils
+
+stop-yarn.sh
+stop-dfs.sh
+
+start-dfs.sh
+start-yarn.sh
+
+yarn-daemon.sh stop nodemanager -> yarn --daemon stop
+
+yarn-daemon.sh start nodemanager -> yarn --daemon start
+
+```

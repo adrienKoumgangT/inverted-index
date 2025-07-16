@@ -11,8 +11,8 @@ The goal is to process a collection of text files and generate an index that map
 inverted-index/
 │
 ├── code/
-    ├── inverted-index-java/
-    └── inverted-index-python/
+│   ├── inverted-index-java/
+│   └── inverted-index-python/
 ├── data/
 ├── hadoop-configs/
 │   ├── core-site.xml
@@ -53,9 +53,15 @@ inverted-index-java/
 inverted-index-python/
 │
 ├── README.md                     # Project documentation for python version
+├── requirements.txt
 └── src/
     ├── __init__.py
-    └── main.py
+    ├── inverted_index.py
+    ├── main.py
+    ├── manager.py
+    ├── parallel_inverted_index.py
+    ├── test.py
+    └── utils.py
 ```
 
 ---

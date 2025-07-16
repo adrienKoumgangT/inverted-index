@@ -6,19 +6,12 @@ services:
     ports:
       - "9870:9870"   # Namenode Web UI
       - "8088:8088"   # ResourceManager Web UI
-      - "9864:9864"   # Datanode Web UI
-      - "9866:9866"   # Datanode IPC
-      - "9867:9867"   # Datanode HTTP
-      - "9000:9000"   # HDFS
-      - "8030:8030"   # ResourceManager
-      - "8031:8031"   # ResourceManager Scheduler
-      - "8032:8032"   # ResourceManager Resource Tracker
-      - "8033:8033"   # ResourceManager Admin
-      - "8040:8040"   # NodeManager Web UI
-      - "8042:8042"   # NodeManager IPC
+      - "8042:8042"   # NodeManager Web UI
+      - "9864:9864"   # DataNode Web UI
+      - "9000:9000"   # HDFS Service
       - "19888:19888" # JobHistory Web UI
     volumes:
-      - ./data:/data     # For persistent HDFS data
+      - ./hadoop-data:/data     # For persistent HDFS data
       - ./input:/input   # Local input directory
       - ./output:/output # Local output directory
       - ./code:/code       # For Java/Python code
@@ -28,9 +21,21 @@ services:
       - HADOOP_HOME=/opt/hadoop
       - JAVA_HOME=/usr/lib/jvm/java-8-openjdk-arm64
       - HADOOP_LOG_DIR=/opt/hadoop/logs
+    mem_limit: 4g
     networks:
       - hadoop-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://hadoop:9870"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
+
+volumes:
+  hadoop-data:
+    driver: local
+  hadoop-logs:
+    driver: local
 
 networks:
   hadoop-net:
