@@ -52,16 +52,16 @@ inverted-index-java/
 ```bash
 inverted-index-python/
 │
-├── README.md                     # Project documentation for python version
+├── README.md                        # Project documentation for python version
 ├── requirements.txt
 └── src/
     ├── __init__.py
-    ├── inverted_index.py
+    ├── inverted_index.py            # V1
     ├── main.py
     ├── manager.py
-    ├── parallel_inverted_index.py
+    ├── parallel_inverted_index.py   # V2 : parallel execution job for each file
     ├── test.py
-    └── utils.py
+    └── utils.py                     # utility functions
 ```
 
 ---
